@@ -299,10 +299,11 @@ export class AVMAPI extends JRPCAPI {
    *
    * @param address The address to pull the asset balance from
    * @param assetID The assetID to pull the balance from
+   * @param includePartial If includePartial=false, returns only the balance held solely
    *
    * @returns Promise with the balance of the assetID as a {@link https://github.com/indutny/bn.js/|BN} on the provided address for the blockchain.
    */
-  getBalance = async (address: string, assetID: string): Promise<object> => {
+  getBalance = async (address: string, assetID: string, includePartial: boolean = false): Promise<object> => {
     if (typeof this.parseAddress(address) === "undefined") {
       /* istanbul ignore next */
       throw new AddressError(
@@ -311,7 +312,8 @@ export class AVMAPI extends JRPCAPI {
     }
     const params: any = {
       address,
-      assetID
+      assetID,
+      includePartial
     }
     const response: RequestResponseData = await this.callMethod(
       "avm.getBalance",
