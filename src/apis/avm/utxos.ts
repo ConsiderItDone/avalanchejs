@@ -936,8 +936,9 @@ export class UTXOSet extends StandardUTXOSet<UTXO> {
         assetID,
         input
       )
+      // TODO - pass in from or fromAddresses to output.getSpenders?
       const from: Buffer[] = output.getAddresses()
-      const spenders: Buffer[] = output.getSpenders(from, asOf)
+      const spenders: Buffer[] = output.getSpenders(fromAddresses, asOf)
       for (let j: number = 0; j < spenders.length; j++) {
         const idx: number = output.getAddressIdx(spenders[j])
         if (idx === -1) {

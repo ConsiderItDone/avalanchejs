@@ -8,7 +8,7 @@ import AvalancheCore from "../../avalanche"
 import BinTools from "../../utils/bintools"
 import { UTXO, UTXOSet } from "./utxos"
 import { AVMConstants } from "./constants"
-import { KeyChain } from "./keychain"
+import { KeyChain, KeyPair } from "./keychain"
 import { Tx, UnsignedTx } from "./tx"
 import { PayloadBase } from "../../utils/payload"
 import { SECPMintOutput } from "./outputs"
@@ -19,7 +19,8 @@ import { RequestResponseData } from "../../common/apibase"
 import { Defaults, PrimaryAssetAlias, ONEAVAX } from "../../utils/constants"
 import { MinterSet } from "./minterset"
 import { PersistanceOptions } from "../../utils/persistenceoptions"
-import { OutputOwners } from "../../common/output"
+import { Address, OutputOwners } from "../../common/output"
+import createHash from "create-hash"
 import { SECPTransferOutput } from "./outputs"
 import {
   AddressError,
@@ -54,7 +55,7 @@ import {
   SendMultipleParams,
   SOutputsParams
 } from "./interfaces"
-import { IssueTxParams } from "../../common"
+import { IssueTxParams, Credential, Signature } from "../../common"
 
 /**
  * @ignore
@@ -1583,6 +1584,77 @@ export class AVMAPI extends JRPCAPI {
    * @returns A signed transaction of type [[Tx]]
    */
   signTx = (utx: UnsignedTx): Tx => utx.sign(this.keychain)
+
+  /**
+   *
+   * @param utx The unsigned transaction of type [[UnsignedTx]]
+   * @param address
+   *
+   * @returns A partially signed transaction of type [[Tx]]
+   */
+  signTxPartially = (utx: UnsignedTx, address: Buffer): Tx =>
+    utx.signPartially(this.keychain, address)
+
+  composeSignature = (txs: Tx[]): Tx => {
+    if (!txs.length) {
+      throw new TransactionError(
+        "Error - composeSignature: provided tx list is empty"
+      )
+    }
+
+    const unsignedTx: UnsignedTx = txs[0].getUnsignedTx()
+
+    const txbuff: Buffer = unsignedTx.toBuffer()
+    const msg: Buffer = Buffer.from(
+      createHash("sha256").update(txbuff).digest()
+    )
+
+    const deriveAddressFromTx = (tx: Tx): Address => {
+      const creds: Credential[] = tx.getCredentials()
+      if (!creds.length) {
+        throw new TransactionError(
+          "Error - composeSignature: tx doesn't have Credentials"
+        )
+      }
+      const sigs: Signature[] = creds[0].getSignatures()
+      if (!sigs.length) {
+        throw new TransactionError(
+          "Error - composeSignature: tx doesn't have Signature"
+        )
+      }
+      const sigA: Signature = creds[0].getSignatures()[0]
+
+      const kp: KeyPair = new KeyPair(this.keychain.hrp, this.keychain.chainid)
+      const pubKey: Buffer = kp.recover(msg, sigA.toBuffer())
+      const addressBuf: Buffer = kp.addressFromPublicKey(pubKey)
+
+      const address: Address = new Address()
+      address.fromBuffer(addressBuf)
+
+      return address
+    }
+
+    txs = txs.sort((a: Tx, b: Tx): 1 | -1 | 0 => {
+      const addressA: Address = deriveAddressFromTx(a)
+      const addressB: Address = deriveAddressFromTx(b)
+
+      return Address.comparator()(addressA, addressB)
+    })
+
+    const result: Credential[] = []
+    for (let i: number = 0; i < txs.length; i++) {
+      const creds = txs[i].getCredentials()
+      for (let j: number = 0; j < creds.length; j++) {
+        if (!result[j]) {
+          result[j] = creds[j].clone()
+        } else {
+          result[j].addSignature(creds[j].getSignatures()[0])
+        }
+      }
+    }
+
+    return new Tx(unsignedTx, result)
+  }
 
   /**
    * Calls the node's issueTx method from the API and returns the resulting transaction ID as a string.

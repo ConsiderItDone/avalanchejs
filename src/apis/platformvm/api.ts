@@ -32,8 +32,11 @@ import {
   GetStakeParams,
   GetStakeResponse
 } from "./interfaces"
+import { Address, Credential, Signature } from "../../common"
 import { TransferableOutput } from "./outputs"
 import { Serialization, SerializedType } from "../../utils"
+import createHash from "create-hash"
+import { KeyPair } from "../avm"
 
 /**
  * @ignore
@@ -809,6 +812,67 @@ export class PlatformVMAPI extends JRPCAPI {
     return response.data.result.txID
       ? response.data.result.txID
       : response.data.result
+  }
+
+  composeSignature = (txs: Tx[]): Tx => {
+    if (!txs.length) {
+      throw new TransactionError(
+        "Error - composeSignature: provided tx list is empty"
+      )
+    }
+
+    const unsignedTx: UnsignedTx = txs[0].getUnsignedTx()
+
+    const txbuff: Buffer = unsignedTx.toBuffer()
+    const msg: Buffer = Buffer.from(
+      createHash("sha256").update(txbuff).digest()
+    )
+
+    const deriveAddressFromTx = (tx: Tx): Address => {
+      const creds: Credential[] = tx.getCredentials()
+      if (!creds.length) {
+        throw new TransactionError(
+          "Error - composeSignature: tx doesn't have Credentials"
+        )
+      }
+      const sigs: Signature[] = creds[0].getSignatures()
+      if (!sigs.length) {
+        throw new TransactionError(
+          "Error - composeSignature: tx doesn't have Signature"
+        )
+      }
+      const sigA: Signature = creds[0].getSignatures()[0]
+
+      const kp: KeyPair = new KeyPair(this.keychain.hrp, this.keychain.chainid)
+      const pubKey: Buffer = kp.recover(msg, sigA.toBuffer())
+      const addressBuf: Buffer = kp.addressFromPublicKey(pubKey)
+
+      const address: Address = new Address()
+      address.fromBuffer(addressBuf)
+
+      return address
+    }
+
+    txs = txs.sort((a: Tx, b: Tx): 1 | -1 | 0 => {
+      const addressA: Address = deriveAddressFromTx(a)
+      const addressB: Address = deriveAddressFromTx(b)
+
+      return Address.comparator()(addressA, addressB)
+    })
+
+    const result: Credential[] = []
+    for (let i: number = 0; i < txs.length; i++) {
+      const creds = txs[i].getCredentials()
+      for (let j: number = 0; j < creds.length; j++) {
+        if (!result[j]) {
+          result[j] = creds[j].clone()
+        } else {
+          result[j].addSignature(creds[j].getSignatures()[0])
+        }
+      }
+    }
+
+    return new Tx(unsignedTx, result)
   }
 
   /**
