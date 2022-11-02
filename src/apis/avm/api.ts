@@ -1444,13 +1444,15 @@ export class AVMAPI extends JRPCAPI {
    * @param utxoset A set of UTXOs that the transaction is built on
    * @param fromAddresses The addresses being used to send the funds from the UTXOs {@link https://github.com/feross/buffer|Buffer}
    * @param changeAddresses The addresses that can spend the change remaining from the spent UTXOs
-   * @param initialState The [[InitialStates]] that represent the intial state of a created asset
+   * @param initialStates The [[InitialStates]] that represent the intial state of a created asset
    * @param name String for the descriptive name of the asset
    * @param symbol String for the ticker symbol of the asset
    * @param denomination Number for the denomination which is 10^D. D must be >= 0 and <= 32. Ex: $1 AVAX = 10^9 $nAVAX
    * @param mintOutputs Optional. Array of [[SECPMintOutput]]s to be included in the transaction. These outputs can be spent to mint more tokens.
    * @param memo Optional CB58 Buffer or String which contains arbitrary bytes, up to 256 bytes
    * @param asOf Optional. The timestamp to verify the transaction against as a {@link https://github.com/indutny/bn.js/|BN}
+   * @param locktime Optional. The locktime field created in the resulting outputs
+   * @param threshold Optional. The number of signatures required to spend the funds in the resultant UTXO
    *
    * @returns An unsigned transaction ([[UnsignedTx]]) which contains a [[CreateAssetTx]].
    *
@@ -1465,7 +1467,9 @@ export class AVMAPI extends JRPCAPI {
     denomination: number,
     mintOutputs: SECPMintOutput[] = undefined,
     memo: PayloadBase | Buffer = undefined,
-    asOf: BN = UnixNow()
+    asOf: BN = UnixNow(),
+    locktime: BN = new BN(0),
+    threshold: number = 1
   ): Promise<UnsignedTx> => {
     const caller: string = "buildCreateAssetTx"
     const from: Buffer[] = this._cleanAddressArray(fromAddresses, caller).map(
@@ -1510,7 +1514,9 @@ export class AVMAPI extends JRPCAPI {
       fee,
       avaxAssetID,
       memo,
-      asOf
+      asOf,
+      locktime,
+      threshold
     )
 
     if (!(await this.checkGooseEgg(builtUnsignedTx, fee))) {

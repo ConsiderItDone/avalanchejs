@@ -435,6 +435,8 @@ export class UTXOSet extends StandardUTXOSet<UTXO> {
    * @param feeAssetID Optional. The assetID of the fees being burned.
    * @param memo Optional contains arbitrary bytes, up to 256 bytes
    * @param asOf Optional. The timestamp to verify the transaction against as a {@link https://github.com/indutny/bn.js/|BN}
+   * @param locktime Optional. The locktime field created in the resulting outputs
+   * @param threshold Optional. The number of signatures required to spend the funds in the resultant UTXO
    *
    * @returns An unsigned transaction created from the passed in parameters.
    *
@@ -452,7 +454,9 @@ export class UTXOSet extends StandardUTXOSet<UTXO> {
     fee: BN = undefined,
     feeAssetID: Buffer = undefined,
     memo: Buffer = undefined,
-    asOf: BN = UnixNow()
+    asOf: BN = UnixNow(),
+    locktime: BN = new BN(0),
+    threshold: number = 1
   ): UnsignedTx => {
     const zero: BN = new BN(0)
     let ins: TransferableInput[] = []
@@ -465,7 +469,12 @@ export class UTXOSet extends StandardUTXOSet<UTXO> {
         changeAddresses
       )
       aad.addAssetAmount(feeAssetID, zero, fee)
-      const success: Error = this.getMinimumSpendable(aad, asOf)
+      const success: Error = this.getMinimumSpendable(
+        aad,
+        asOf,
+        locktime,
+        threshold
+      )
       if (typeof success === "undefined") {
         ins = aad.getInputs()
         outs = aad.getAllOutputs()
