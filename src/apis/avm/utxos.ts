@@ -315,7 +315,9 @@ export class UTXOSet extends StandardUTXOSet<UTXO> {
         const changeout: AmountOutput = SelectOutputClass(
           outids[`${assetKey}`],
           change,
-          aad.getChangeAddresses()
+          aad.getChangeAddresses(),
+          locktime,
+          threshold
         ) as AmountOutput
         const chgxferout: TransferableOutput = new TransferableOutput(
           amounts[`${i}`].getAssetID(),
