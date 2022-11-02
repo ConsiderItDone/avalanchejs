@@ -110,6 +110,12 @@ export interface GetBalanceResponse {
   unlocked: BN | number
   lockedStakeable: BN | number
   lockedNotStakeable: BN | number
+  balances: {
+    [assetID: string]: string
+  }
+  unlockeds: {
+    [assetID: string]: string
+  }
   utxoIDs: {
     txID: string
     outputIndex: number
