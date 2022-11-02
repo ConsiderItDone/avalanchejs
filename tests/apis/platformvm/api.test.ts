@@ -252,8 +252,12 @@ describe("PlatformVMAPI", (): void => {
     const unlocked: BN = new BN("100", 10)
     const lockedStakeable: BN = new BN("100", 10)
     const lockedNotStakeable: BN = new BN("100", 10)
-    const balances = { BUuypiq2wyuLMvyhzFXcPyxPMCgSp7eeDohhQRqTChoBjKziC: '1000000000' }
-    const unlockeds = { BUuypiq2wyuLMvyhzFXcPyxPMCgSp7eeDohhQRqTChoBjKziC: '1000000000' }
+    const balances = {
+      BUuypiq2wyuLMvyhzFXcPyxPMCgSp7eeDohhQRqTChoBjKziC: "1000000000"
+    }
+    const unlockeds = {
+      BUuypiq2wyuLMvyhzFXcPyxPMCgSp7eeDohhQRqTChoBjKziC: "1000000000"
+    }
     const respobj: GetBalanceResponse = {
       balance,
       unlocked,
